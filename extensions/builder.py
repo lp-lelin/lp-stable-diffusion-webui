@@ -23,29 +23,26 @@
 # File author: Shariq Farooq Bhat
 
 from importlib import import_module
-from dzoedepth.models.depth_model import DepthModel
 
-def build_model(config) -> DepthModel:
-    """Builds a model from a config. The model is specified by the model name and version in the config. The model is then constructed using the build_from_config function of the model interface.
-    This function should be used to construct models for training and evaluation.
+
+def get_trainer(config):
+    """Builds and returns a trainer based on the config.
 
     Args:
-        config (dict): Config dict. Config is constructed in utils/config.py. Each model has its own config file(s) saved in its root model folder.
+        config (dict): the config dict (typically constructed using utils.config.get_config)
+            config.trainer (str): the name of the trainer to use. The module named "{config.trainer}_trainer" must exist in trainers root module
+
+    Raises:
+        ValueError: If the specified trainer does not exist under trainers/ folder
 
     Returns:
-        torch.nn.Module: Model corresponding to name and version as specified in config
+        Trainer (inherited from zoedepth.trainers.BaseTrainer): The Trainer object
     """
-    module_name = f"dzoedepth.models.{config.model}"
+    assert "trainer" in config and config.trainer is not None and config.trainer != '', "Trainer not specified. Config: {0}".format(
+        config)
     try:
-        module = import_module(module_name)
+        Trainer = getattr(import_module(
+            f"zoedepth.trainers.{config.trainer}_trainer"), 'Trainer')
     except ModuleNotFoundError as e:
-        # print the original error message
-        print(e)
-        raise ValueError(
-            f"Model {config.model} not found. Refer above error for details.") from e
-    try:
-        get_version = getattr(module, "get_version")
-    except AttributeError as e:
-        raise ValueError(
-            f"Model {config.model} has no get_version function.") from e
-    return get_version(config.version_name).build_from_config(config)
+        raise ValueError(f"Trainer {config.trainer}_trainer not found.") from e
+    return Trainer
